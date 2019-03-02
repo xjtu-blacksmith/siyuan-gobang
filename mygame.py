@@ -1,20 +1,49 @@
 from tkinter import *
+import tkinter.messagebox
+
+def prod(numbers):
+    result = 1
+    for i in range(len(numbers)):
+        result *= numbers[i]
+    return result
 
 def putchess(event):
-    global player
-    radius = 10
-    colors = ['black', 'white']
+    global player, flag
+    radius = 10     # 棋子半径
+    colors = ['black', 'white']     # 
     cursor_x = event.x - mesh
     cursor_y = event.y - mesh
     order_x = round(cursor_x / mesh)
     order_y = round(cursor_y / mesh)
-    gamearea.create_oval(mesh * (order_x + 1) - radius, 
-      mesh * (order_y + 1) - radius,
-      mesh * (order_x + 1) + radius, 
-      mesh * (order_y + 1) + radius,
-      fill = colors[player - 2])
-    player = 5 - player
+    if (in_area(order_x, order_y)) and (flag[order_x][order_y] == 0):
+        gamearea.create_oval(mesh * (order_x + 1) - radius, 
+          mesh * (order_y + 1) - radius,
+          mesh * (order_x + 1) + radius, 
+          mesh * (order_y + 1) + radius,
+          fill = colors[player - 2])
+        flag[order_x][order_y] = player
+        if check_win(player) == True:
+            tkinter.messagebox.showinfo('提示', '玩家%d胜利!' % (player - 1))
+            exit()
+        player = 5 - player
 
+def in_area(x, y):
+    return (0 <= x < 15) and (0 <= y < 15)
+
+def check_win(player):
+    global flag, size
+    for i in range(size):
+        for j in range(size):
+            if j <= size - 5:
+                bottom_flag = prod(flag[i][j:j+5])
+                if bottom_flag == player ** 5:
+                    return True
+            if i <= size - 5:
+                right_tuple = [flag[k][j] for k in range(i,i+5)]
+                right_flag = prod(right_tuple)
+                if right_flag == player ** 5:
+                    return True
+    return False
 
 if __name__ == '__main__':
     # 定义基本的尺寸变量
@@ -38,5 +67,5 @@ if __name__ == '__main__':
     for i in range(size):
         gamearea.create_line(mesh, mesh * (i + 1), mesh * size, mesh * (i + 1))
         gamearea.create_line(mesh * (i + 1), mesh, mesh * (i + 1), mesh * size)
-    gamearea.bind('<Button-1>', putchess)
+    gamearea.bind('<Button-1>', putchess)   # 绑定鼠标左击事件
     window.mainloop()
