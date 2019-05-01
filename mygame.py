@@ -13,7 +13,7 @@ def rountine(event):
         y = round(cursor_y / mesh)          # y代表着屏幕上的纵坐标，棋盘上的行
         # 以下的这个判断结构很重要，要记得
         if putchess(x, y) == True:          # 玩家下成功以后才能由AI下
-            y, x = basic_AI()               # 确定AI下棋的最佳位点
+            y, x = minmax_AI()               # 确定AI下棋的最佳位点
             while putchess(x, y) == False:  # AI要下成功为止（Debug功能）
                 print('Fail')
                 x, y = choice(range(15)), choice(range(15)) # 随机的AI
@@ -74,39 +74,8 @@ def check_win():
                     return True
     return False
 
-def basic_AI():
-    global flag, size, player
-    value = zeros([size, size], dtype = int) 
-    def count_five(five_list):
-        if sum(five_list) == player * 5:    # 连五
-            return 50000
-        elif sum(five_list) == player * 4:
-            if five_list[0] == 0 or five_list[4] == 0:  # 无法判断(先做活四处理)
-                return 5000
-            else:       # 冲四
-                return 1000
-        else:
-            return 0
-    best_i, best_j = 0, 0
-    max_score = 0
-    for i in range(size):
-        for j in range(size):
-            if flag[i, j] == 0:
-                new_flag = flag.copy()
-                new_flag[i, j] = player
-                for k in range(max([0, i - 4]), min([size - 6, i])):
-                    bottom_tuple = [new_flag[k + l, j] for l in range(5)]
-                    value[i, j] = max([value[i, j], count_five(bottom_tuple) + min([i, j, size - i - 1, size - j - 1])])
-                for k in range(max([0, j - 4]), min([size - 6, j])):
-                    right_tuple = new_flag[i, k:k+5]
-                    value[i, j] = max([value[i, j], count_five(right_tuple) + min([i, j, size - i - 1, size - j - 1])])
-                if value[i, j] > max_score:
-                    max_score = value[i, j]
-                    best_i, best_j = i, j
-    return best_i, best_j
-
-def new_AI():
-    '采用极大极小算法的新AI'
+def minmax_AI():
+    '采用极大极小算法的AI'
     global flag, size, player
     def evaluate(count, vacancyB, vacancyA):
         '对棋型进行评分'
@@ -133,21 +102,21 @@ def new_AI():
         for i in range(size):
             line_list.append(flag[i])
             line_list.append(flag[...,i])
-            if 4 <= i <= 13:
-                line_list.append([flag[i - k, k] for k in range(i + 1)])
-                line_list.append([flag[i - k, size - k] for k in range(i + 1)])
-                line_list.append([flag[size - i + k, k] for k in range(i + 1)])
-                line_list.append([flag[size - i + k, size - k] for k in range(i + 1)])
-            elif i == 14:
-                line_list.append([flag[k, k] for k in range(size)])
-                line_list.append([flag[k, size - k] for k in range(size)])
+            # if 4 <= i <= 13:
+            #     line_list.append([flag[i - k, k] for k in range(i + 1)])
+            #     line_list.append([flag[i - k, size - k] for k in range(i + 1)])
+            #     line_list.append([flag[size - i + k, k] for k in range(i + 1)])
+            #     line_list.append([flag[size - i + k, size - k] for k in range(i + 1)])
+            # elif i == 14:
+            #     line_list.append([flag[k, k] for k in range(size)])
+            #     line_list.append([flag[k, size - k] for k in range(size)])
         value = 0
         for i in range(len(line_list)):
             value += judge_line(line_list[i], player)
             value -= judge_line(line_list[i], 5 - player)
         return value
 
-    def judge_line(line, the_player, from_place=False, current = 0):
+    def judge_line(line, the_player, from_place=False, current=0):
         '对某一列进行棋型估分'
         mine = False        # 定义当前位置是否为己方的棋子
         count = 0
@@ -166,7 +135,7 @@ def new_AI():
                 mine = False
                 if count > 1:
                     hit_end = i
-                    if from_place == False or (from_place == True and hit_start < current < hit_end):
+                    if from_place == False or hit_start <= current <= hit_end:
                         for j in range(hit_start, -1, -1):
                             if line[j] > 0:
                                 break
@@ -185,33 +154,57 @@ def new_AI():
         '对某一位置放下的棋子产生的棋型估分'
         flag[row, column] = the_player
         line_list = []
-        line_list.append(flag[row] + [column])  # 复合列表，最后一位存取当前棋子的位置
-        line_list.append(flag[...,column] + [row])
-        # 斜线暂未完成
-        # if column > row:
-        #     line_list.append([flag[row + k, column + k] for k in range(- row:size - row + 1)] + [row + 1])
-        # else:
-        #     line_list.append([flag[row + k, column + k] for k in range(- column:size - column + 1)] + [column + 1])
-        # if size - row > column:
-        #     line_list.append([flag[size - row + k, column + k] for k in range(- column:size - column + 1)] + [column + 1])
-        # else:
-        #     line_list.append([flag[size - row + k, column + k] for k in range(row - size: row + 1)] + [])
+        current_list = []
+        line_list.append(flag[row])
+        current_list.append(column)
+        line_list.append(flag[...,column])
+        current_list.append(row)
+        if column > row:
+            line_list.append([flag[row + k, column + k] for k in range(- row,size - column)])
+            current_list.append(row)
+        else:
+            line_list.append([flag[row + k, column + k] for k in range(- column,size - row)])
+            current_list.append(column)
+        if size - row > column:
+            line_list.append([flag[size - row + k, column + k] for k in range(- column, row)])
+            current_list.append(column)
+        else:
+            line_list.append([flag[size - row + k, column + k] for k in range(row - size, size - column)])
+            current_list.append(row)
         value = 0
-        for line in line_list:
-            value += judge_line(line[:-1], the_player, True, line[len(line) - 1])
+        for i in range(len(line_list)):
+            value += judge_line(line_list[i], the_player, True, current_list[i])
         flag[row, column] = 0
         return value + min([row, column, size - row - 1, size - column - 1])
 
-    value = zeros([size, size], dtype = int)
-    max_score = 0
-    best_i, best_j = 0, 0
-    for i in range(size):
-        for j in range(size):
-            if flag[i, j] == 0:
-                value[i, j] = judge_place(i, j, player)
-                if value[i, j] > max_score:
-                    best_i, best_j = i, j
-                    max_score = value[i, j]
+    def minmax(depth, the_player):
+        max_score, max_row, max_column = -5000000, 0, 0
+        if(depth == 1):
+            for row in range(size):
+                for column in range(size):
+                    if flag[row, column] == 0:
+                        score = judge_place(row, column, the_player)        # 进攻性加分
+                        score += judge_place(row, column, 5 - the_player)   # 防守性加分
+                        flag[row, column] = the_player
+                        score += judge_game() + min([row, column, size - row - 1, size - column - 1])
+                        if score > max_score:
+                            max_score, max_row, max_column = score, row, column
+                        flag[row, column] = 0
+            return max_score, max_row, max_column
+        else:
+            max_score, max_row, max_column = -5000000, 0, 0
+            for row in range(size):
+                for column in range(size):
+                    if flag[row, column] == 0:
+                        flag[row, column] = the_player
+                        score, tmp1, tmp2 = minmax(depth - 1, 5 - the_player)
+                        score = - score
+                        if score > max_score:
+                            max_score, max_row, max_column = score, row, column
+                        flag[row, column] = 0
+            return max_score, max_row, max_column
+
+    max_score, best_i, best_j = minmax(1, player)       # 目前未剪枝/优化，只容许深度为1（即时判断）
     return best_i, best_j
 
 
