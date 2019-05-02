@@ -74,6 +74,21 @@ def check_win():
                     return True
     return False
 
+def check_area():
+    '检查棋盘上的非空区域大小，缩小搜索范围'
+    global flag, size
+    min_row, min_column, max_row, max_column = size-1, size-1, 0, 0
+    for row in range(size):
+        for column in range(size):
+            if flag[row, column] != 0:
+                min_row = min([row, min_row])
+                min_column = min([column, min_column])
+                max_row = max([row, max_row])
+                max_column = max([column, max_column])
+    min_row, min_column = max([0, min_row - 2]), max([0, min_column - 2])
+    max_row, max_column = min([size - 1, max_row + 2]), min([size - 1, max_column + 2])
+    return min_row, min_column, max_row, max_column
+
 def minmax_AI():
     '采用极大极小算法的AI'
     global flag, size, player
@@ -99,17 +114,11 @@ def minmax_AI():
     def judge_game():
         '对整个游戏局面进行评估'
         line_list = []
-        for i in range(size):
-            line_list.append(flag[i])
-            line_list.append(flag[...,i])
-            # if 4 <= i <= 13:
-            #     line_list.append([flag[i - k, k] for k in range(i + 1)])
-            #     line_list.append([flag[i - k, size - k] for k in range(i + 1)])
-            #     line_list.append([flag[size - i + k, k] for k in range(i + 1)])
-            #     line_list.append([flag[size - i + k, size - k] for k in range(i + 1)])
-            # elif i == 14:
-            #     line_list.append([flag[k, k] for k in range(size)])
-            #     line_list.append([flag[k, size - k] for k in range(size)])
+        min_row, min_column, max_row, max_column = check_area()
+        for i in range(min_row, max_row + 1):
+            line_list.append(flag[i, min_column:max_column + 1])
+        for i in range(min_column, max_column + 1):
+            line_list.append(flag[min_row:max_row + 1,i])
         value = 0
         for i in range(len(line_list)):
             value += judge_line(line_list[i], player)
@@ -177,35 +186,39 @@ def minmax_AI():
         flag[row, column] = 0
         return value + min([row, column, size - row - 1, size - column - 1])
 
-    def minmax(depth, the_player):
-        max_score, max_row, max_column = -5000000, 0, 0
-        if(depth == 1):
-            for row in range(size):
-                for column in range(size):
-                    if flag[row, column] == 0:
-                        score = judge_place(row, column, the_player)        # 进攻性加分
-                        score += judge_place(row, column, 5 - the_player)   # 防守性加分
-                        flag[row, column] = the_player
-                        score += judge_game() + min([row, column, size - row - 1, size - column - 1])
-                        if score > max_score:
-                            max_score, max_row, max_column = score, row, column
-                        flag[row, column] = 0
-            return max_score, max_row, max_column
-        else:
-            max_score, max_row, max_column = -5000000, 0, 0
-            for row in range(size):
-                for column in range(size):
-                    if flag[row, column] == 0:
-                        flag[row, column] = the_player
-                        score, tmp1, tmp2 = minmax(depth - 1, 5 - the_player)
-                        score = - score
-                        if score > max_score:
-                            max_score, max_row, max_column = score, row, column
-                        flag[row, column] = 0
-            return max_score, max_row, max_column
+    def minmax(depth, the_player, counter=0):
+        '不带alpha-beta剪枝的minmax优化算法'
+        best_score, best_row, best_column = -5000000, 0, 0
+        min_row, min_column, max_row, max_column = check_area()
+        best_list = []
+        for row in range(min_row, max_row + 1):
+            for column in range(min_column, max_column + 1):
+                if flag[row, column] == 0:
+                    best_list.append([judge_place(row, column, the_player) +\
+                      judge_place(row, column, 5 - the_player), row, column])
+        best_list.sort()
+        best_list = best_list[-4:]
+        for i in range(len(best_list)):
+            row, column = best_list[i][1], best_list[i][2]
+            init_score = best_list[i][0]
+            if depth == 1:
+                score = init_score
+                flag[row, column] = the_player
+                score += judge_game() + min([row, column, size - row - 1, size - column - 1])
+                counter += 1
+            else:
+                flag[row, column] = the_player
+                score, tmp, tmp, counter = minmax(depth - 1, 5 - the_player, counter)
+                score = - score
+                counter += 1
+            if score > best_score:
+                best_score, best_row, best_column = score, row, column
+            flag[row, column] = 0
+        return best_score, best_row, best_column, counter
 
-    max_score, best_i, best_j = minmax(1, player)       # 目前未剪枝/优化，只容许深度为1（即时判断）
-    return best_i, best_j
+    best_score, best_row, best_column, a_counter= minmax(3, player)
+    print(a_counter)
+    return best_row, best_column
 
 
 
